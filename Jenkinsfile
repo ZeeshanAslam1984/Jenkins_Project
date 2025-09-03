@@ -10,10 +10,17 @@ pipeline {
             }
         }
         stage('Setup') {
-            steps {
-                sh "pip install -r requirements.txt"
-            }
-        }
+    steps {
+        bat """
+        if exist requirements.txt (
+            pip install -r requirements.txt
+        ) else (
+            echo "requirements.txt not found!"
+        )
+        """
+    }
+}
+
         stage('Test') {
             steps {
                 sh "pytest"
