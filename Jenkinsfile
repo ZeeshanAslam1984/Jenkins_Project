@@ -5,7 +5,7 @@ pipeline {
         VENV_DIR = "venv"
         DB_HOST = '192.168.12.1'
         USERNAME = 'zeeshan'
-        PASSWORD = 'zesh1234'
+        PASSWORD = 'zesh123'
     }
 
     stages {
