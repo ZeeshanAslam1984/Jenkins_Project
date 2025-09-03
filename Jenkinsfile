@@ -27,7 +27,7 @@ pipeline {
             steps {
               
                 bat "%VENV_DIR%\\Scripts\\pytest --maxfail=1 --disable-warnings -v"
-                echo "The DB username: ${env.USERNAME} and the password is: ${env.PASSWORD}"
+                echo "Commit: ${env.GIT_COMMIT}"
             }
         }
     }
