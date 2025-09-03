@@ -10,12 +10,12 @@ pipeline {
             parallel {
                 stage('linting') {
                     steps {
-                        bat "sleep 30"
+                        bat "timeout /T 30 >nul"
                     }
                 }
                 stage('formatting') {
                     steps {
-                        bat "sleep 30"
+                        bat "timeout /T 30 >nul"
                     }
                 }
             }
