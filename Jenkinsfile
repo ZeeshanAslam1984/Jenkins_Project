@@ -1,9 +1,13 @@
 pipeline {
     agent any
-
-    options {
-        timeout(time: 1, unit: 'MINUTES')
+    parameters {
+        string(name: 'ENVIRONMENT', defaultValue: 'dev', description: 'Specify the environment for deployment')
+        booleanParam(name: 'RUN_TESTS', defaultValue: true, description: "Run Tests in pipeline")
     }
+
+    /*options {
+        timeout(time: 1, unit: 'MINUTES')
+    }*/
     environment {
         VENV_DIR = "venv"
     }
@@ -13,17 +17,12 @@ pipeline {
             parallel {
                 stage('linting') {
                     steps {
-                     sleep(time: 70, unit: 'SECONDS')
-
-
-
+                        sleep(time: 70, unit: 'SECONDS')
                     }
                 }
                 stage('formatting') {
                     steps {
-                       sleep(time: 70, unit: 'SECONDS')
-
-
+                        sleep(time: 70, unit: 'SECONDS')
                     }
                 }
             }
@@ -48,8 +47,20 @@ pipeline {
         }
 
         stage('Test') {
+            when {
+                expression {
+                    params.RUN_TESTS == true
+                }
+            }
             steps {
                 bat "%VENV_DIR%\\Scripts\\pytest --maxfail=1 --disable-warnings -v"
+                echo "testing application"
+            }
+        }
+
+        stage('Deploy') {
+            steps {
+                echo "deploying to ${params.ENVIRONMENT} environment"
             }
         }
     }
