@@ -10,7 +10,7 @@ pipeline {
             parallel {
                 stage('linting') {
                     steps {
-                       bat "ping -n 31 127.0.0.1 >nul"
+                        sleep(time: 30, unit: 'SECONDS')
 
                     }
                 }
