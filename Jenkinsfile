@@ -16,23 +16,20 @@ pipeline {
 
         stage('Setup') {
             steps {
-                // Create a virtual environment
                 sh "python3 -m venv ${VENV_DIR}"
-                // Activate venv and install requirements
+                // Use venv/bin/pip directly, no source needed
                 sh """
-                    source ${VENV_DIR}/bin/activate
-                    pip install --upgrade pip
-                    pip install -r requirements.txt
+                    ${VENV_DIR}/bin/pip install --upgrade pip
+                    ${VENV_DIR}/bin/pip install -r requirements.txt
                 """
             }
         }
 
         stage('Test') {
             steps {
-                // Run tests inside virtual environment
+                // Run tests using the virtual environment Python directly
                 sh """
-                    source ${VENV_DIR}/bin/activate
-                    pytest --maxfail=1 --disable-warnings -v
+                    ${VENV_DIR}/bin/pytest --maxfail=1 --disable-warnings -v
                 """
             }
         }
