@@ -11,18 +11,18 @@ pipeline {
     stages {
 
         stage('Setup') {
-            steps {
-                // Create virtual environment
-                bat "python -m venv %VENV_DIR%"
+    steps {
+        // Create virtual environment
+        bat "python -m venv %VENV_DIR%"
                 
-                // Upgrade pip and install requirements
-                bat """
-                    %VENV_DIR%\\Scripts\\python -m pip install --upgrade pip
-                    %VENV_DIR%\\Scripts\\python -m pip install -r requirements.txt
-                    echo The Database IP is: %DB_HOST%
-                """
-            }
-        }
+        // Upgrade pip and install requirements (with cache)
+        bat """
+            %VENV_DIR%\\Scripts\\python -m pip install --upgrade pip
+            %VENV_DIR%\\Scripts\\python -m pip install --requirement requirements.txt --cache-dir=%WORKSPACE%\\.pip-cache
+            echo The Database IP is: %DB_HOST%
+        """
+    }
+}
 
         stage('Test') {
             steps {
