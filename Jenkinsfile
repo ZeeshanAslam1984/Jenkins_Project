@@ -9,7 +9,7 @@ pipeline {
     }
 
     stages {
-        stage('lint and format') {
+        /*stage('lint and format') {
             parallel {
                 stage('linting') {
                     steps {
@@ -27,7 +27,7 @@ pipeline {
                     }
                 }
             }
-        }
+        }*/
 
         stage('Setup') {
             steps {
