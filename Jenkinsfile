@@ -10,16 +10,17 @@ pipeline {
             }
         }
         stage('Setup') {
-    steps {
-        sh """
-        if exist requirements.txt (
-            pip install -r requirements.txt
-        ) else (
-            echo "requirements.txt not found!"
-        )
-        """
-    }
-}
+            steps {
+                // Check if requirements.txt exists and install
+                sh '''
+                if [ -f requirements.txt ]; then
+                    pip install -r requirements.txt
+                else
+                    echo "requirements.txt not found!"
+                fi
+                '''
+            }
+        }
 
         stage('Test') {
             steps {
