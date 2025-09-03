@@ -13,7 +13,7 @@ pipeline {
             }
         }
 
-        stage('Approval') {  // <-- Input must be inside a stage
+        stage('Approval') {  
             steps {
                 input message: "Do you want to proceed with deployment?", ok: "Yes, proceed!"
             }
