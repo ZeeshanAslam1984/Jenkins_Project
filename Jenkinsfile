@@ -10,21 +10,7 @@ pipeline {
             }
         }
         stage('Setup') {
-    steps {
-        sh '''
-        # Create virtual environment
-        python3 -m venv venv
-
-        # Activate virtual environment
-        source venv/bin/activate
-
-        # Upgrade pip inside venv
-        python -m pip install --upgrade pip
-
-        # Install requirements inside venv
-        python -m pip install -r requirements.txt
-        '''
-    }
+    sh 'pip install -r requirements.txt'
 }
 
 
