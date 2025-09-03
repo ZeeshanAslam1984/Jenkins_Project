@@ -10,12 +10,14 @@ pipeline {
             parallel {
                 stage('linting') {
                     steps {
-                        bat "timeout /T 30 >nul"
+                       bat "ping -n 31 127.0.0.1 >nul"
+
                     }
                 }
                 stage('formatting') {
                     steps {
-                        bat "timeout /T 30 >nul"
+                       bat "ping -n 31 127.0.0.1 >nul"
+
                     }
                 }
             }
