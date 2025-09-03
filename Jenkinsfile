@@ -9,10 +9,12 @@ pipeline {
                 sh "ls -ltr"
             }
         }
-        stage('Setup') {
-    sh 'pip install -r requirements.txt'
-}
 
+        stage('Setup') {
+            steps {
+                sh 'pip install -r requirements.txt'
+            }
+        }
 
         stage('Test') {
             steps {
