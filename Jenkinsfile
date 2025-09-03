@@ -1,6 +1,9 @@
 pipeline {
     agent any
 
+    options {
+        timeout(time: 1, unit: 'MINUTES'
+    }
     environment {
         VENV_DIR = "venv"
     }
@@ -10,13 +13,16 @@ pipeline {
             parallel {
                 stage('linting') {
                     steps {
-                        sleep(time: 30, unit: 'SECONDS')
+                     sleep(time: 70, unit: 'SECONDS')
+
+
 
                     }
                 }
                 stage('formatting') {
                     steps {
-                       sleep(time: 30, unit: 'SECONDS')
+                       sleep(time: 70, unit: 'SECONDS')
+
 
                     }
                 }
