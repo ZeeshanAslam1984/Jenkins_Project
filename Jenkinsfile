@@ -12,16 +12,20 @@ pipeline {
         stage('Setup') {
     steps {
         sh '''
-        if [ -f requirements.txt ]; then
-            python3 -m pip install --upgrade pip
-            python3 -m pip install -r requirements.txt
-        else
-            echo "requirements.txt not found!"
-        fi
+        # Create virtual environment
+        python3 -m venv venv
+
+        # Activate virtual environment
+        source venv/bin/activate
+
+        # Upgrade pip inside venv
+        python -m pip install --upgrade pip
+
+        # Install requirements inside venv
+        python -m pip install -r requirements.txt
         '''
     }
 }
-
 
 
         stage('Test') {
