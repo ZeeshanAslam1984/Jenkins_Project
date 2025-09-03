@@ -12,10 +12,9 @@ pipeline {
 
         stage('Setup') {
     steps {
-        // Create virtual environment
+        
         bat "python -m venv %VENV_DIR%"
                 
-        // Upgrade pip and install requirements (with cache)
         bat """
             %VENV_DIR%\\Scripts\\python -m pip install --upgrade pip
             %VENV_DIR%\\Scripts\\python -m pip install --requirement requirements.txt --cache-dir=%WORKSPACE%\\.pip-cache
@@ -26,7 +25,7 @@ pipeline {
 
         stage('Test') {
             steps {
-                // Run tests using virtual environment Python
+              
                 bat "%VENV_DIR%\\Scripts\\pytest --maxfail=1 --disable-warnings -v"
                 echo "The DB username: ${env.USERNAME} and the password is: ${env.PASSWORD}"
             }
