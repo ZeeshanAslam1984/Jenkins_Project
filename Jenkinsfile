@@ -1,18 +1,21 @@
 pipeline {
     agent any
 
-    environment {
-        VENV_DIR = "venv"
-        SERVER_CREDS = credentials('server-creds') 
+     environment {
+        VENV_DIR = "venv"   
     }
 
     stages {
 
         stage('Setup') {
     steps {
-        echo "my creds: ${SERVER_CREDS}"
-        echo "Username: ${SERVER_CREDS_USR}"
-        echo "Username: ${SERVER_CREDS_PSW}"
+        withCredentials([usernamePassword(credentialsId: 'server-creds', usernameVariable: "myuser", passwordVariable: "mypassword")]) {
+             bat ''' 
+              echo %myuser%
+              echo %mypassword%
+                 '''
+        }
+        
         bat "python -m venv %VENV_DIR%"
                 
         bat """
