@@ -10,27 +10,27 @@ pipeline {
         stage('Checkout') {
             steps {
                 git url: 'https://github.com/ZeeshanAslam1984/Jenkins_Project.git', branch: 'main'
-                sh 'ls -ltr'
+                bat 'dir'
             }
         }
 
         stage('Setup') {
             steps {
-                sh "python3 -m venv ${VENV_DIR}"
-                // Use venv/bin/pip directly, no source needed
-                sh """
-                    ${VENV_DIR}/bin/pip install --upgrade pip
-                    ${VENV_DIR}/bin/pip install -r requirements.txt
+                // Create virtual environment
+                bat "python -m venv %VENV_DIR%"
+                
+                // Upgrade pip and install requirements
+                bat """
+                    %VENV_DIR%\\Scripts\\python -m pip install --upgrade pip
+                    %VENV_DIR%\\Scripts\\python -m pip install -r requirements.txt
                 """
             }
         }
 
         stage('Test') {
             steps {
-                // Run tests using the virtual environment Python directly
-                sh """
-                    ${VENV_DIR}/bin/pytest --maxfail=1 --disable-warnings -v
-                """
+                // Run tests using virtual environment Python
+                bat "%VENV_DIR%\\Scripts\\pytest --maxfail=1 --disable-warnings -v"
             }
         }
     }
@@ -38,7 +38,7 @@ pipeline {
     post {
         always {
             echo 'Cleaning up workspace...'
-            sh "rm -rf ${VENV_DIR}"
+            bat "rmdir /s /q %VENV_DIR%"
         }
         success {
             echo 'Pipeline completed successfully!'
