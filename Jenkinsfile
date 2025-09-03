@@ -2,6 +2,7 @@ pipeline {
     agent any
 
     environment {
+        VENV_DIR = "venv"
         SERVER_CREDS = credentials('server-creds') 
     }
 
