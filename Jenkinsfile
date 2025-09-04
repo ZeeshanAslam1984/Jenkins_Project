@@ -1,69 +1,48 @@
 pipeline {
     agent any
-    parameters {
-        string(name: 'ENVIRONMENT', defaultValue: 'dev', description: 'Specify the environment for deployment')
-        booleanParam(name: 'RUN_TESTS', defaultValue: true, description: "Run Tests in pipeline")
-    }
 
-    /*options {
-        timeout(time: 1, unit: 'MINUTES')
-    }*/
     environment {
-        VENV_DIR = "venv"
+        SERVER_IP = credentials('prod-server-ip')
     }
 
     stages {
-        /*stage('lint and format') {
-            parallel {
-                stage('linting') {
-                    steps {
-                        sleep(time: 70, unit: 'SECONDS')
-                    }
-                }
-                stage('formatting') {
-                    steps {
-                        sleep(time: 70, unit: 'SECONDS')
-                    }
-                }
-            }
-        }*/
-
         stage('Setup') {
             steps {
-                withCredentials([usernamePassword(credentialsId: 'server-creds', usernameVariable: "myuser", passwordVariable: "mypassword")]) {
-                    bat '''
-                        echo %myuser%
-                        echo %mypassword%
-                    '''
-                }
-
-                bat "python -m venv %VENV_DIR%"
-
-                bat """
-                    %VENV_DIR%\\Scripts\\python -m pip install --upgrade pip
-                    %VENV_DIR%\\Scripts\\python -m pip install --requirement requirements.txt --cache-dir=%WORKSPACE%\\.pip-cache
-                """
+                sh 'pip install -r requirements.txt'
             }
         }
 
         stage('Test') {
-            when {
-                expression {
-                    params.RUN_TESTS == true
-                }
-            }
             steps {
-                bat "%VENV_DIR%\\Scripts\\pytest --maxfail=1 --disable-warnings -v"
-                echo "testing application"
+                sh 'pytest'
             }
         }
 
-       stage('Deployment') { 
-    steps {
-        echo "deploying to ${params.ENVIRONMENT} environment"
-        input message: "Do you want to proceed", ok: "Yes"
-    }
-}
+        stage('Package code') {
+            steps {
+                sh 'zip -r myapp.zip ./ -x "*.git*"'
+                sh 'ls -lart'
+            }
+        }
 
+        stage('Deploy to Prod') {
+            steps {
+                withCredentials([sshUserPrivateKey(credentialsId: 'ssh-key', 
+                                                  keyFileVariable: 'MY_SSH_KEY', 
+                                                  usernameVariable: 'username')]) {
+                    sh '''
+scp -i $MY_SSH_KEY -o StrictHostKeyChecking=no myapp.zip ${username}@${SERVER_IP}:/home/ec2-user/
+
+ssh -i $MY_SSH_KEY -o StrictHostKeyChecking=no ${username}@${SERVER_IP} << EOF
+    unzip -o /home/ec2-user/myapp.zip -d /home/ec2-user/app/
+    cd /home/ec2-user/app/
+    source venv/bin/activate
+    pip install -r requirements.txt
+    sudo systemctl restart flaskapp.service
+EOF
+                    '''
+                }
+            }
+        }
     }
 }
