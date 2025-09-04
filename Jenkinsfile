@@ -36,7 +36,7 @@ pipeline {
             pscp -i C:\\path\\to\\private-key.ppk -batch myapp.zip "ec2-user@%SERVER_IP%:/home/ec2-user/"
 
             echo Deploying on EC2...
-            plink -i C:\\path\\to\\private-key.ppk -batch ec2-user@%SERVER_IP% ^
+            plink -i C:\Users\Zeeshan\Downloads\KK-prod.ppk ec2-user@3.25.200.84 ^
                 "unzip -o /home/ec2-user/myapp.zip -d /home/ec2-user/app/ && ^
                 cd /home/ec2-user/app/ && ^
                 source venv/bin/activate && ^
@@ -46,5 +46,6 @@ pipeline {
     }
 }
 
-    }
+    }           plink -i C:\path\to\KK-prod.ppk ec2-user@3.25.200.84
+
 }
