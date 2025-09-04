@@ -3,18 +3,27 @@ pipeline {
 
     environment {
         SERVER_IP = credentials('prod-server-ip')
+        VENV_DIR  = "venv"
     }
 
     stages {
-        stage('Setup') {
+        stage('Setup venv') {
             steps {
-                bat 'pip install -r requirements.txt'
+                bat """
+                    python -m venv %VENV_DIR%
+                    call %VENV_DIR%\\Scripts\\activate
+                    pip install --upgrade pip
+                    pip install -r requirements.txt
+                """
             }
         }
 
         stage('Test') {
             steps {
-                bat 'pytest'
+                bat """
+                    call %VENV_DIR%\\Scripts\\activate
+                    pytest
+                """
             }
         }
 
@@ -30,10 +39,10 @@ pipeline {
                 withCredentials([sshUserPrivateKey(credentialsId: 'ssh-key',
                                                   keyFileVariable: 'MY_SSH_KEY',
                                                   usernameVariable: 'username')]) {
-                    bat '''
+                    bat """
 scp -i %MY_SSH_KEY% -o StrictHostKeyChecking=no myapp.zip %username%@%SERVER_IP%:/home/ec2-user/
 ssh -i %MY_SSH_KEY% -o StrictHostKeyChecking=no %username%@%SERVER_IP% "unzip -o /home/ec2-user/myapp.zip -d /home/ec2-user/app/ && cd /home/ec2-user/app/ && source venv/bin/activate && pip install -r requirements.txt && sudo systemctl restart flaskapp.service"
-                    '''
+                    """
                 }
             }
         }
