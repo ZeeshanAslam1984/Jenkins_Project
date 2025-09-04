@@ -46,6 +46,6 @@ pipeline {
     }
 }
 
-    }           plink -i C:\path\to\KK-prod.ppk ec2-user@3.25.200.84
+    }          
 
 }
