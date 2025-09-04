@@ -10,7 +10,7 @@ pipeline {
         steps {
             // Create a virtual environment if it doesn't exist
             sh '''
-            python3 -m venv jenkins-venv
+            python3 -m venv j-venv
             source jenkins-venv/bin/activate
             pip install --upgrade pip setuptools wheel
             pip install -r requirements.txt
