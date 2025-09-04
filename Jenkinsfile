@@ -35,30 +35,21 @@ pipeline {
             steps {
                 withCredentials([sshUserPrivateKey(credentialsId: 'ssh-key', keyFileVariable: 'MY_SSH_KEY', usernameVariable: 'USERNAME')]) {
                     sh '''
-                       
                         scp -i $MY_SSH_KEY -o StrictHostKeyChecking=no myapp.zip ${USERNAME}@${SERVER_IP}:/home/ec2-user/
-
-                        
                         ssh -i $MY_SSH_KEY -o StrictHostKeyChecking=no ${USERNAME}@${SERVER_IP} << 'EOF'
-                            # Create app directory if it doesn't exist
                             mkdir -p /home/ec2-user/app
                             unzip -o /home/ec2-user/myapp.zip -d /home/ec2-user/app/
-
-                          
                             cd /home/ec2-user/app
-
-                            # Create virtual environment on server
                             python3 -m venv venv
                             source venv/bin/activate
                             pip install --upgrade pip
                             pip install -r requirements.txt
-
-                          
                             sudo systemctl restart flaskapp.service
                         EOF
                     '''
                 }
             }
         }
-    }
-}
+
+    } // end of stages
+} // end of pipeline
