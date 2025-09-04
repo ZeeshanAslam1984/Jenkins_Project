@@ -5,18 +5,17 @@ pipeline {
         SERVER_IP = credentials('prod-server-ip')
     }
 
-    stages {
+    sstage('Setup') {
+    steps {
+        sh '''
+            python3 -m venv venv
+            source venv/bin/activate
+            pip install --upgrade pip
+            pip install -r requirements.txt
+        '''
+    }
+}
 
-        stage('Setup') {
-            steps {
-                sh '''
-                    python3 -m venv venv
-                    source venv/bin/activate
-                    pip install --upgrade pip
-                    pip install -r requirements.txt
-                '''
-            }
-        }
 
         stage('Test') {
             steps {
