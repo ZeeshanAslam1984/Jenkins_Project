@@ -34,11 +34,9 @@ stage('Deploy to Prod') {
         withCredentials([file(credentialsId: 'kk-prod-pem', variable: 'PEM_FILE')]) {
             sh '''
             echo "Copying zip file to EC2..."
-            # Copy app zip to EC2 using scp inside WSL
             wsl scp -i $PEM_FILE myapp.zip ec2-user@3.25.200.84:/home/ec2-user/
 
             echo "Deploying on EC2..."
-            # Run remote deploy commands on EC2 via ssh inside WSL
             wsl ssh -i $PEM_FILE ec2-user@3.25.200.84 "
                 unzip -o /home/ec2-user/myapp.zip -d /home/ec2-user/app/ &&
                 cd /home/ec2-user/app/ &&
@@ -50,6 +48,7 @@ stage('Deploy to Prod') {
         }
     }
 }
+
 
     }          
 
