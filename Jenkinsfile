@@ -27,12 +27,12 @@ pipeline {
             }
         }
 
-        stage('Package code') {
-            steps {
-                bat 'powershell -Command "Compress-Archive -Path * -DestinationPath myapp.zip"'
-                bat 'dir'
-            }
-        }
+       stage('Package code') {
+    steps {
+        bat 'powershell -Command "Compress-Archive -Path * -DestinationPath myapp.zip -Force"'
+        bat 'dir'
+    }
+}
 
         stage('Deploy to Prod') {
             steps {
