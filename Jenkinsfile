@@ -10,9 +10,9 @@ pipeline {
         stage('Setup') {
             steps {
                 sh '''#!/bin/bash
-                    source /home/vboxuser/jenkins-venv/bin/activate
-                    pip install --upgrade pip
-                    pip install -r requirements.txt --quiet
+                    python3 -m venv .venv
+                    source .venv/bin/activate
+                    pip install --upgrade pip grpcio Flask -r requirements.txt --quiet
                 '''
             }
         }
@@ -20,7 +20,7 @@ pipeline {
         stage('Test') {
             steps {
                 sh '''#!/bin/bash
-                    source /home/vboxuser/jenkins-venv/bin/activate
+                    source .venv/bin/activate
                     pytest
                 '''
             }
@@ -28,7 +28,7 @@ pipeline {
 
         stage('Package code') {
             steps {
-                sh "zip -r myapp.zip ./* -x '*.git*' 'venv/*'"
+                sh "zip -r myapp.zip ./* -x '*.git*' '.venv/*'"
                 sh "ls -lart"
             }
         }
@@ -41,10 +41,10 @@ pipeline {
                         ssh -i $MY_SSH_KEY -o StrictHostKeyChecking=no ${USERNAME}@${SERVER_IP} << 'EOF'
                             mkdir -p /home/ec2-user/app
                             unzip -o /home/ec2-user/myapp.zip -d /home/ec2-user/app/
-                            source /home/vboxuser/jenkins-venv/bin/activate
                             cd /home/ec2-user/app
-                            pip install --upgrade pip
-                            pip install -r requirements.txt --quiet
+                            python3 -m venv .venv
+                            source .venv/bin/activate
+                            pip install --upgrade pip -r requirements.txt --quiet
                             sudo systemctl restart flaskapp.service
                         EOF
                     '''
@@ -53,4 +53,4 @@ pipeline {
         }
 
     } // end of stages
-} // end of pipeline
+}
