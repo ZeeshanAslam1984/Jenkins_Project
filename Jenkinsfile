@@ -16,8 +16,8 @@ pipeline {
         '''
     }
 }
-
         }
+    
 
         stage('Test') {
             steps {
@@ -70,7 +70,7 @@ pipeline {
                 }
             }
         }
-    }
+    
 
     post {
         success {
