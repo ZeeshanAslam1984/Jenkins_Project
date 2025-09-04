@@ -7,18 +7,16 @@ pipeline {
         PREINSTALLED_VENV_EC2 = "/home/ec2-user/jenkins-venv"
     }
 
-    stages {
-
-        stage('Setup') {
-            steps {
-                sh """
-                    # Activate preinstalled venv on Jenkins VM
-                    source ${PREINSTALLED_VENV_JENKINS}/bin/activate
-                    pip install --upgrade pip
-                    pip install -r requirements.txt --upgrade --quiet
-                """
-            }
-        }
+    stage('Setup') {
+    steps {
+        sh '''
+            #!/bin/bash
+            source /home/vboxuser/jenkins-venv/bin/activate
+            pip install --upgrade pip
+            pip install -r requirements.txt --upgrade --quiet
+        '''
+    }
+}
 
         stage('Test') {
             steps {
