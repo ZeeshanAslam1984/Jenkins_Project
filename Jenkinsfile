@@ -7,15 +7,16 @@ pipeline {
 
     stages {
         stage('Setup') {
-            steps {
-                // Create a virtual environment if it doesn't exist
-                sh '''
-                python3 -m venv j-venv
-                source j-venv/bin/activate
-                pip install --upgrade pip setuptools wheel
-                pip install -r requirements.txt
-                '''
-            }
+    steps {
+        sh '''
+        python3 -m venv j-venv
+        . j-venv/bin/activate
+        pip install --upgrade pip setuptools wheel
+        pip install -r requirements.txt
+        '''
+    }
+}
+
         }
 
         stage('Test') {
