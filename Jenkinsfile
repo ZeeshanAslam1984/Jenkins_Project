@@ -6,22 +6,24 @@ pipeline {
     }
 
     stages {
-    stage('Setup') {
-        steps {
-            // Create a virtual environment if it doesn't exist
-            sh '''
-            python3 -m venv j-venv
-            source jenkins-venv/bin/activate
-            pip install --upgrade pip setuptools wheel
-            pip install -r requirements.txt
-            '''
+        stage('Setup') {
+            steps {
+                // Create a virtual environment if it doesn't exist
+                sh '''
+                python3 -m venv j-venv
+                source j-venv/bin/activate
+                pip install --upgrade pip setuptools wheel
+                pip install -r requirements.txt
+                '''
+            }
         }
-    }
-}
 
         stage('Test') {
             steps {
-                sh "pytest"
+                sh '''
+                source j-venv/bin/activate
+                pytest
+                '''
             }
         }
 
@@ -37,32 +39,32 @@ pipeline {
                 // Use SSH key from Jenkins credentials
                 withCredentials([sshUserPrivateKey(credentialsId: 'ssh-key', keyFileVariable: 'MY_SSH_KEY', usernameVariable: 'USERNAME')]) {
                     sh """
-                        # Copy zip to EC2
-                        scp -i \$MY_SSH_KEY -o StrictHostKeyChecking=no myapp.zip \$USERNAME@\$SERVER_IP:/home/ec2-user/
+                    # Copy zip to EC2
+                    scp -i \$MY_SSH_KEY -o StrictHostKeyChecking=no myapp.zip \$USERNAME@\$SERVER_IP:/home/ec2-user/
 
-                        # SSH into EC2 and deploy
-                        ssh -i \$MY_SSH_KEY -o StrictHostKeyChecking=no \$USERNAME@\$SERVER_IP << 'EOF'
-                            # Create app folder if not exists
-                            mkdir -p /home/ec2-user/app
-                            
-                            # Unzip project
-                            unzip -o /home/ec2-user/myapp.zip -d /home/ec2-user/app/
+                    # SSH into EC2 and deploy
+                    ssh -i \$MY_SSH_KEY -o StrictHostKeyChecking=no \$USERNAME@\$SERVER_IP << 'EOF'
+                        # Create app folder if not exists
+                        mkdir -p /home/ec2-user/app
+                        
+                        # Unzip project
+                        unzip -o /home/ec2-user/myapp.zip -d /home/ec2-user/app/
 
-                            cd /home/ec2-user/app/
+                        cd /home/ec2-user/app/
 
-                            # Create virtual environment if not exists
-                            if [ ! -d "venv" ]; then
-                                python3 -m venv venv
-                            fi
+                        # Create virtual environment if not exists
+                        if [ ! -d "venv" ]; then
+                            python3 -m venv venv
+                        fi
 
-                            # Activate venv and install dependencies
-                            source venv/bin/activate
-                            pip install --upgrade pip
-                            pip install -r requirements.txt
+                        # Activate venv and install dependencies
+                        source venv/bin/activate
+                        pip install --upgrade pip
+                        pip install -r requirements.txt
 
-                            # Restart Flask service
-                            sudo systemctl restart flaskapp.service
-                        EOF
+                        # Restart Flask service
+                        sudo systemctl restart flaskapp.service
+                    EOF
                     """
                 }
             }
