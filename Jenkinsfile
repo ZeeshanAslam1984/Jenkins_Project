@@ -6,7 +6,7 @@ pipeline {
         SSH_KEY   = credentials('ssh-key')
         USERNAME  = 'ec2-user'
         APP_DIR   = "/home/ec2-user/app"
-        VENV_DIR  = "${APP_DIR}/venv" // Production venv on EC2
+        VENV_DIR  = "${APP_DIR}/venv"
     }
 
     stages {
@@ -33,11 +33,9 @@ pipeline {
         stage('Package Code') {
             steps {
                 script {
-                    // Clean up any previous artifacts
                     sh 'rm -rf dist myapp.zip'
                     sh 'mkdir -p dist'
 
-                    // Define which files to include
                     def filesToInclude = [
                         'app.py',
                         'requirements.txt',
@@ -51,12 +49,11 @@ pipeline {
                         }
                     }
 
-                    // Create the zip file
                     sh '''
                         cd dist
                         zip -r ../myapp.zip ./*
                     '''
-                    sh 'ls -lh myapp.zip'
+                    sh 'ls -l myapp.zip'
                 }
             }
         }
@@ -73,7 +70,7 @@ pipeline {
                         scp -i $MY_SSH_KEY -o StrictHostKeyChecking=no myapp.zip $USERNAME@$SERVER_IP:/home/ec2-user/
 
                         echo "==== Deploying on EC2 ===="
-                        ssh -i $MY_SSH_KEY -o StrictHostKeyChecking=no $USERNAME@$SERVER_IP << 'EOF'
+                        ssh -i $MY_SSH_KEY -o StrictHostKeyChecking=no $USERNAME@$SERVER_IP << EOF
                             set -e
 
                             echo "==== Creating app dir ===="
