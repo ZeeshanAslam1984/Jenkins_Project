@@ -10,7 +10,7 @@ pipeline {
     }
 
     stages {
-        stage('Setup & Install') {
+        stage('Setup & Install Locally') {
             steps {
                 sh '''
                     python3 -m venv j-venv
@@ -21,7 +21,7 @@ pipeline {
             }
         }
 
-        stage('Run Tests') {
+        stage('Run Local Tests') {
             steps {
                 sh '''
                     . j-venv/bin/activate
@@ -33,7 +33,6 @@ pipeline {
         stage('Package Code') {
             steps {
                 script {
-                    // --- CRITICAL FIX: Exclude local j-venv from deployment ---
                     // Clean up any previous artifacts
                     sh 'rm -rf dist myapp.zip'
 
@@ -44,16 +43,8 @@ pipeline {
                     def filesToInclude = [
                         'app.py',
                         'requirements.txt',
-                        'Jenkinsfile',
-                        'README.md',
-                        'Dockerfile',
-                        'script.sh',
-                        'deployment.yaml',
-                        'deployment_production.yaml',
-                        'eksClusterCreation.md',
-                        'commands.txt',
-                        'tasks.txt',
-                        'templates'
+                        // Add other necessary files/dirs here
+                        'templates' // Example, add others as needed
                     ]
 
                     // Copy each specified file/directory if it exists
@@ -63,8 +54,8 @@ pipeline {
                         }
                     }
 
-                    // --- CRITICAL FIX: Explicitly exclude j-venv when creating ZIP ---
                     // Create the ZIP archive from the dist directory contents
+                    // This explicitly lists files to avoid including j-venv
                     sh '''
                         cd dist
                         zip -r ../myapp.zip ./*
@@ -89,83 +80,78 @@ pipeline {
                     '''
 
                     // Execute deployment commands on the EC2 instance
+                    // Using 'bash -c' to ensure a proper shell environment
                     sh '''
-                        ssh -i $MY_SSH_KEY -o StrictHostKeyChecking=no $USERNAME@$SERVER_IP << EOF
+                        ssh -i $MY_SSH_KEY -o StrictHostKeyChecking=no $USERNAME@$SERVER_IP 'bash -c "
                             set -e # Exit immediately if a command exits with a non-zero status
 
-                            echo "Creating application directory on EC2..."
+                            echo \"==== Creating application directory on EC2 ==== \"
                             mkdir -p ${APP_DIR}
 
-                            echo "Moving ZIP file to application directory..."
+                            echo \"==== Moving ZIP file ==== \"
                             mv /home/ec2-user/myapp.zip ${APP_DIR}/
                             cd ${APP_DIR}
 
-                            echo "Extracting application code..."
+                            echo \"==== Extracting application code ==== \"
                             unzip -o myapp.zip
 
-                            echo "Setting up production virtual environment on EC2 (attempt 1)..."
-                            if [ ! -d "${VENV_DIR}" ]; then
-                                # Try creating with --upgrade-deps to install pip/setuptools/wheel
-                                python3 -m venv ${VENV_DIR} --upgrade-deps || echo "venv --upgrade-deps failed, trying base venv creation..."
+                            echo \"==== Setting up production virtual environment ==== \"
+                            if [ ! -d \"${VENV_DIR}\" ]; then
+                                echo \"Creating new venv...\"
+                                python3 -m venv ${VENV_DIR}
+                            else
+                                echo \"Venv exists, recreating to ensure cleanliness...\"
+                                rm -rf ${VENV_DIR}
+                                python3 -m venv ${VENV_DIR}
                             fi
 
-                            # Check if venv/bin/python exists, if not, force basic creation
-                            if [ ! -f "${VENV_DIR}/bin/python" ]; then
-                                 echo "venv seems broken, recreating without --upgrade-deps..."
-                                 rm -rf ${VENV_DIR}
-                                 python3 -m venv ${VENV_DIR}
+                            echo \"==== Activating production virtual environment ==== \"
+                            source ${VENV_DIR}/bin/activate
+
+                            echo \"==== Ensuring pip is available in venv ==== \"
+                            # Use the system pip to install pip INTO the venv
+                            # This is often the most reliable way on AL2023
+                            python3 -m pip install --upgrade --target ${VENV_DIR}/lib/python*/site-packages pip
+
+                            # Create a symlink for pip in the venv bin if it doesn't exist
+                            if [ ! -f \"${VENV_DIR}/bin/pip\" ]; then
+                                PIP_EXECUTABLE=\$(find ${VENV_DIR}/lib -name \"pip\" -type f -executable 2>/dev/null | head -n 1)
+                                if [ -n \"\${PIP_EXECUTABLE}\" ]; then
+                                    echo \"Creating symlink for pip...\"
+                                    ln -s \${PIP_EXECUTABLE} ${VENV_DIR}/bin/pip
+                                else
+                                    echo \"ERROR: Could not find pip executable to symlink after installation.\"
+                                    exit 1
+                                fi
                             fi
 
-                            echo "Activating production virtual environment..."
-                            . ${VENV_DIR}/bin/activate
+                            echo \"==== Verifying pip location ==== \"
+                            source ${VENV_DIR}/bin/activate # Reactivate to be sure
+                            which pip
+                            pip --version
 
-                            # Explicitly install/upgrade pip, setuptools, wheel INTO the venv
-                            # This is the most reliable way to ensure they exist in the correct location
-                            echo "Explicitly installing pip, setuptools, wheel into the venv..."
-                            python3 -m pip install --target ${VENV_DIR}/lib/python*/site-packages --upgrade pip setuptools wheel
-
-                            # Create symlinks for pip, python if they are missing after the above step
-                            PYTHON_VERSION_DIR=\$(ls -1 ${VENV_DIR}/lib/ | grep python)
-                            SITE_PACKAGES_DIR="${VENV_DIR}/lib/\${PYTHON_VERSION_DIR}/site-packages"
-                            BIN_DIR="${VENV_DIR}/bin"
-
-                            if [ ! -f "\${BIN_DIR}/pip" ] && [ -f "\${SITE_PACKAGES_DIR}/bin/pip" ]; then
-                                echo "Creating symlink for pip..."
-                                ln -s \${SITE_PACKAGES_DIR}/bin/pip* \${BIN_DIR}/ 2>/dev/null || echo "Symlink for pip failed"
-                            fi
-                            if [ ! -f "\${BIN_DIR}/python" ]; then
-                                 echo "Creating symlink for python..."
-                                 ln -s /usr/bin/python3 \${BIN_DIR}/python 2>/dev/null || echo "Symlink for python failed"
-                            fi
-
-                            # Final check and activation
-                            echo "Re-activating virtual environment to ensure correct PATH..."
-                            . ${VENV_DIR}/bin/activate
-
-                            # Verify pip is available
-                            which pip || (echo "pip still not found!"; ls -la ${VENV_DIR}/bin; exit 1)
-
-                            echo "Upgrading application dependencies from requirements.txt..."
+                            echo \"==== Installing application dependencies ==== \"
+                            pip install --upgrade pip setuptools wheel
                             pip install --prefer-binary -r requirements.txt
 
-                            echo "Restarting flaskapp.service..."
+                            echo \"==== Restarting flaskapp.service ==== \"
                             if sudo systemctl is-active --quiet flaskapp.service; then
-                                echo "Service is active, restarting..."
+                                echo \"Service is active, restarting...\"
                                 sudo systemctl restart flaskapp.service
                             else
-                                echo "Service not active, starting..."
+                                echo \"Service not active, starting...\"
                                 sudo systemctl start flaskapp.service
                             fi
 
                             # Final verification that the service is running
                             if ! sudo systemctl is-active --quiet flaskapp.service; then
-                                echo "❌ ERROR: flaskapp.service failed to start!"
+                                echo \"❌ ERROR: flaskapp.service failed to start!\"
                                 sudo systemctl status flaskapp.service --no-pager
                                 exit 1
                             fi
 
-                            echo "✅ Deployment completed successfully!"
-                        EOF
+                            echo \"✅ Deployment completed successfully!\"
+                        "'
                     '''
                 }
             }
@@ -175,13 +161,9 @@ pipeline {
     post {
         success {
             echo "🚀 Deployment Succeeded!"
-            // Optionally add email notifications here
-            // emailext(subject: "SUCCESS: Pipeline \${env.JOB_NAME} [\${env.BUILD_NUMBER}]", body: "See \${env.BUILD_URL}", recipientProviders: [[$class: 'DevelopersRecipientProvider']])
         }
         failure {
             echo "❌ Deployment Failed!"
-            // Optionally add email notifications here
-            // emailext(subject: "FAILURE: Pipeline \${env.JOB_NAME} [\${env.BUILD_NUMBER}]", body: "See \${env.BUILD_URL}", recipientProviders: [[$class: 'DevelopersRecipientProvider']])
         }
     }
 }
