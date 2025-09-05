@@ -103,43 +103,50 @@ pipeline {
                             echo "Extracting application code..."
                             unzip -o myapp.zip
 
-                            echo "Setting up production virtual environment on EC2..."
+                            echo "Setting up production virtual environment on EC2 (attempt 1)..."
                             if [ ! -d "${VENV_DIR}" ]; then
-                                python3 -m venv ${VENV_DIR}
+                                # Try creating with --upgrade-deps to install pip/setuptools/wheel
+                                python3 -m venv ${VENV_DIR} --upgrade-deps || echo "venv --upgrade-deps failed, trying base venv creation..."
+                            fi
+
+                            # Check if venv/bin/python exists, if not, force basic creation
+                            if [ ! -f "${VENV_DIR}/bin/python" ]; then
+                                 echo "venv seems broken, recreating without --upgrade-deps..."
+                                 rm -rf ${VENV_DIR}
+                                 python3 -m venv ${VENV_DIR}
                             fi
 
                             echo "Activating production virtual environment..."
                             . ${VENV_DIR}/bin/activate
 
-                            echo "Ensuring pip is installed in the EC2 virtual environment..."
-                            # Use python3 explicitly for Amazon Linux 2023
-                            python3 -m ensurepip --upgrade || echo "Warning: ensurepip failed, attempting alternative method..."
+                            # Explicitly install/upgrade pip, setuptools, wheel INTO the venv
+                            # This is the most reliable way to ensure they exist in the correct location
+                            echo "Explicitly installing pip, setuptools, wheel into the venv..."
+                            python3 -m pip install --target ${VENV_DIR}/lib/python*/site-packages --upgrade pip setuptools wheel
 
-                            # Fallback: Download and run get-pip.py if pip is still not available or not in venv
-                            if [ ! -f "${VENV_DIR}/bin/pip" ]; then
-                                echo "pip binary not found in EC2 venv, downloading get-pip.py..."
-                                curl -s https://bootstrap.pypa.io/get-pip.py -o /tmp/get-pip.py
-                                python3 /tmp/get-pip.py --force-reinstall --target=${VENV_DIR}/lib/python*/site-packages
-                                # Create a symlink for pip in the venv bin directory if it wasn't created
-                                if [ ! -f "${VENV_DIR}/bin/pip" ]; then
-                                   echo "Creating symlink for pip (if needed)..."
-                                   ln -s ${VENV_DIR}/lib/python*/site-packages/bin/pip* ${VENV_DIR}/bin/ 2>/dev/null || echo "Symlink creation failed or not needed"
-                                fi
+                            # Create symlinks for pip, python if they are missing after the above step
+                            PYTHON_VERSION_DIR=\$(ls -1 ${VENV_DIR}/lib/ | grep python)
+                            SITE_PACKAGES_DIR="${VENV_DIR}/lib/\${PYTHON_VERSION_DIR}/site-packages"
+                            BIN_DIR="${VENV_DIR}/bin"
+
+                            if [ ! -f "\${BIN_DIR}/pip" ] && [ -f "\${SITE_PACKAGES_DIR}/bin/pip" ]; then
+                                echo "Creating symlink for pip..."
+                                ln -s \${SITE_PACKAGES_DIR}/bin/pip* \${BIN_DIR}/ 2>/dev/null || echo "Symlink for pip failed"
+                            fi
+                            if [ ! -f "\${BIN_DIR}/python" ]; then
+                                 echo "Creating symlink for python..."
+                                 ln -s /usr/bin/python3 \${BIN_DIR}/python 2>/dev/null || echo "Symlink for python failed"
                             fi
 
-                            # Explicitly reactivate to ensure PATH and environment are correct for the venv's pip
+                            # Final check and activation
                             echo "Re-activating virtual environment to ensure correct PATH..."
                             . ${VENV_DIR}/bin/activate
 
-                            # Verify pip is available in the PATH
-                            which pip || echo "pip not found in PATH after activation"
+                            # Verify pip is available
+                            which pip || (echo "pip still not found!"; ls -la ${VENV_DIR}/bin; exit 1)
 
-                            echo "Upgrading pip, setuptools, and wheel using full path..."
-                            # Use the full path to pip to be absolutely sure
-                            ${VENV_DIR}/bin/pip install --upgrade pip setuptools wheel
-
-                            echo "Installing application dependencies from requirements.txt..."
-                            ${VENV_DIR}/bin/pip install --prefer-binary -r requirements.txt
+                            echo "Upgrading application dependencies from requirements.txt..."
+                            pip install --prefer-binary -r requirements.txt
 
                             echo "Restarting flaskapp.service..."
                             if sudo systemctl is-active --quiet flaskapp.service; then
