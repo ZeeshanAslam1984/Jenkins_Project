@@ -74,67 +74,60 @@ pipeline {
         }
 
         stage('Deploy to EC2') {
-            steps {
-                withCredentials([sshUserPrivateKey(
-                    credentialsId: 'ssh-key',
-                    keyFileVariable: 'MY_SSH_KEY',
-                    usernameVariable: 'USERNAME'
-                )]) {
-                    // Copy zip to EC2
-                    sh '''
-                        scp -i $MY_SSH_KEY -o StrictHostKeyChecking=no myapp.zip $USERNAME@$SERVER_IP:/home/ec2-user/
-                    '''
+    steps {
+        withCredentials([sshUserPrivateKey(
+            credentialsId: 'ssh-key',
+            keyFileVariable: 'MY_SSH_KEY',
+            usernameVariable: 'USERNAME'
+        )]) {
+            sh '''
+                scp -i $MY_SSH_KEY -o StrictHostKeyChecking=no myapp.zip $USERNAME@$SERVER_IP:/home/ec2-user/
+            '''
 
-                    // Run remote setup and restart
-                    sh '''
-                        ssh -i $MY_SSH_KEY -o StrictHostKeyChecking=no $USERNAME@$SERVER_IP << 'EOF'
-                            set -e  # Exit on any error
+            sh '''
+                ssh -i $MY_SSH_KEY -o StrictHostKeyChecking=no $USERNAME@$SERVER_IP << EOF
+                    set -e
+                    echo "Creating app directory..."
+                    mkdir -p ${APP_DIR}
 
-                            echo "Creating app directory..."
-                            mkdir -p ${APP_DIR}
+                    echo "Extracting new version..."
+                    unzip -o /home/ec2-user/myapp.zip -d ${APP_DIR}/
 
-                            echo "Extracting new version..."
-                            unzip -o /home/ec2-user/myapp.zip -d ${APP_DIR}/
+                    cd ${APP_DIR}
 
-                            cd ${APP_DIR}
+                    echo "Setting up virtual environment..."
+                    if [ ! -d "${VENV_DIR}" ]; then
+                        python3 -m venv ${VENV_DIR}
+                    fi
 
-                            echo "Setting up virtual environment..."
-                            if [ ! -d "${VENV_DIR}" ]; then
-                                python3 -m venv ${VENV_DIR}
-                            fi
+                    echo "Activating virtual environment..."
+                    source ${VENV_DIR}/bin/activate
 
-                            echo "Activating virtual environment..."
-                            source ${VENV_DIR}/bin/activate
+                    echo "Upgrading pip..."
+                    pip install --upgrade pip setuptools wheel
 
-                            echo "Upgrading pip..."
-                            pip install --upgrade pip setuptools wheel
+                    echo "Installing dependencies..."
+                    pip install --prefer-binary -r requirements.txt
 
-                            echo "Installing dependencies..."
-                            pip install --prefer-binary -r requirements.txt
+                    echo "Restarting flaskapp.service..."
+                    if systemctl is-active --quiet flaskapp.service; then
+                        sudo systemctl restart flaskapp.service
+                    else
+                        sudo systemctl start flaskapp.service
+                    fi
 
-                            echo "Checking systemd service..."
-                            if systemctl is-active --quiet flaskapp.service; then
-                                echo "Restarting flaskapp.service..."
-                                sudo systemctl restart flaskapp.service
-                            else
-                                echo "Starting flaskapp.service..."
-                                sudo systemctl start flaskapp.service
-                            fi
+                    if ! systemctl is-active --quiet flaskapp.service; then
+                        echo "❌ flaskapp.service failed to start!"
+                        sudo systemctl status flaskapp.service --no-pager
+                        exit 1
+                    fi
 
-                            # Final status check
-                            if ! systemctl is-active --quiet flaskapp.service; then
-                                echo "❌ flaskapp.service failed to start!"
-                                sudo systemctl status flaskapp.service --no-pager
-                                exit 1
-                            fi
-
-                            echo "✅ Deployment successful!"
-                        EOF
-                    '''
-                }
-            }
+                    echo "✅ Deployment successful!"
+                EOF
+            '''
         }
     }
+}
 
     post {
         success {
