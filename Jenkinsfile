@@ -6,7 +6,7 @@ pipeline {
         SSH_KEY   = credentials('ssh-key')
         USERNAME  = 'ec2-user'
         APP_DIR   = "/home/ec2-user/app"
-        VENV_DIR  = "${APP_DIR}/venv"
+        VENV_DIR  = "${APP_DIR}/venv" // Production venv on EC2
     }
 
     stages {
@@ -53,7 +53,7 @@ pipeline {
                         cd dist
                         zip -r ../myapp.zip ./*
                     '''
-                    sh 'ls -l myapp.zip'
+                    sh 'ls -lh myapp.zip'
                 }
             }
         }
@@ -70,27 +70,28 @@ pipeline {
                         scp -i $MY_SSH_KEY -o StrictHostKeyChecking=no myapp.zip $USERNAME@$SERVER_IP:/home/ec2-user/
 
                         echo "==== Deploying on EC2 ===="
-                        ssh -i $MY_SSH_KEY -o StrictHostKeyChecking=no $USERNAME@$SERVER_IP << EOF
+                        ssh -i $MY_SSH_KEY -o StrictHostKeyChecking=no $USERNAME@$SERVER_IP 'bash -c "
                             set -e
-
-                            echo "==== Creating app dir ===="
                             mkdir -p ${APP_DIR}
                             mv /home/ec2-user/myapp.zip ${APP_DIR}/
                             cd ${APP_DIR}
-
-                            echo "==== Extracting app ===="
                             unzip -o myapp.zip
 
-                            echo "==== Setting up venv ===="
+                            echo '==== Setting up venv ===='
                             rm -rf ${VENV_DIR}
                             python3 -m venv ${VENV_DIR}
                             source ${VENV_DIR}/bin/activate
 
-                            echo "==== Installing dependencies ===="
-                            pip install --upgrade pip setuptools wheel
+                            echo '==== Ensuring pip available ===='
+                            python3 -m pip install --upgrade pip setuptools wheel
+
+                            echo '==== Installing grpcio explicitly ===='
+                            pip install --prefer-binary grpcio==1.74.0 grpcio-status==1.74.0
+
+                            echo '==== Installing other dependencies ===='
                             pip install --prefer-binary -r requirements.txt
 
-                            echo "==== Restarting flaskapp.service ===="
+                            echo '==== Restarting Flask service ===='
                             if sudo systemctl is-active --quiet flaskapp.service; then
                                 sudo systemctl restart flaskapp.service
                             else
@@ -98,13 +99,13 @@ pipeline {
                             fi
 
                             if ! sudo systemctl is-active --quiet flaskapp.service; then
-                                echo "❌ ERROR: flaskapp.service failed to start!"
+                                echo '❌ ERROR: flaskapp.service failed to start!'
                                 sudo systemctl status flaskapp.service --no-pager
                                 exit 1
                             fi
 
-                            echo "✅ Deployment completed successfully!"
-                        EOF
+                            echo '✅ Deployment completed successfully!'
+                        "'
                     '''
                 }
             }
