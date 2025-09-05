@@ -5,6 +5,8 @@ pipeline {
         SERVER_IP = credentials('prod-server-ip')
         SSH_KEY   = credentials('ssh-key')
         USERNAME  = 'ec2-user'
+        APP_DIR   = "/home/ec2-user/app"
+        VENV_DIR  = "${APP_DIR}/venv"
     }
 
     stages {
@@ -14,7 +16,6 @@ pipeline {
                     python3 -m venv j-venv
                     . j-venv/bin/activate
                     pip install --upgrade pip setuptools wheel
-                    pip install "grpcio==1.74.0" "grpcio-status==1.74.0"
                     pip install -r requirements.txt
                 '''
             }
@@ -38,7 +39,8 @@ pipeline {
                     def filesToInclude = [
                         'app.py',
                         'requirements.txt',
-                        'templates'
+                        'templates',
+                        'static'
                     ]
 
                     filesToInclude.each { item ->
@@ -64,27 +66,30 @@ pipeline {
                     usernameVariable: 'USERNAME'
                 )]) {
                     sh '''
+                        echo "==== Copying ZIP to EC2 ===="
                         scp -i $MY_SSH_KEY -o StrictHostKeyChecking=no myapp.zip $USERNAME@$SERVER_IP:/home/ec2-user/
 
+                        echo "==== Running remote deployment script on EC2 ===="
                         ssh -i $MY_SSH_KEY -o StrictHostKeyChecking=no $USERNAME@$SERVER_IP 'bash -c "
                             set -e
+
                             APP_DIR=/home/ec2-user/app
-                            VENV_DIR=$APP_DIR/venv
+                            VENV_DIR=\\$APP_DIR/venv
 
                             echo ==== Creating application directory ====
-                            mkdir -p $APP_DIR
+                            mkdir -p \\$APP_DIR
 
                             echo ==== Moving ZIP file ====
-                            mv /home/ec2-user/myapp.zip $APP_DIR/
-                            cd $APP_DIR
+                            mv /home/ec2-user/myapp.zip \\$APP_DIR/
+                            cd \\$APP_DIR
 
                             echo ==== Extracting application code ====
                             unzip -o myapp.zip
 
                             echo ==== Setting up production virtual environment ====
-                            rm -rf $VENV_DIR
-                            python3 -m venv $VENV_DIR
-                            source $VENV_DIR/bin/activate
+                            rm -rf \\$VENV_DIR
+                            python3 -m venv \\$VENV_DIR
+                            source \\$VENV_DIR/bin/activate
 
                             echo ==== Ensuring pip is available ====
                             python3 -m pip install --upgrade pip setuptools wheel
