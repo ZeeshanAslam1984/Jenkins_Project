@@ -9,7 +9,7 @@ task_id_counter = 1
 @app.route('/', methods=['GET', 'POST'])
 def index():
     global task_id_counter
-    response_text = ""
+    response_text = "1"
 
     if request.method == 'POST':
         if 'add_task' in request.form:
